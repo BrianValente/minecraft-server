@@ -1,0 +1,13 @@
+{{- if eq true .Values.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  podMetricsEndpoints:
+  - port: prometheus
+    path: {{ default "/metrics" .Values.prometheus.path }}
+{{ end }}

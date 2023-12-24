@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      containers:
+      - name: {{ .Release.Name }}
+        image: {{ .Values.image }}
+        imagePullPolicy: Always
+        tty: true
+        stdin: true
+        ports:
+          - name: app
+            containerPort: {{ .Values.port }}
+          - name: prometheus
+            containerPort: {{ .Values.prometheus.port }}
+        volumeMounts:
+        - name: data
+          mountPath: /app-data
+        resources:
+          requests:
+            memory: {{ .Values.resources.requests.memory }}
+          limits:
+            memory: {{ .Values.resources.limits.memory }}
+        env:
+        - name: CMD
+          value: {{ .Values.cmd }}
+      imagePullSecrets:
+      - name: regcred
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}

@@ -1,0 +1,18 @@
+image: docker.home.valente.ar/svc-minecraft
+port: 25565
+
+cmd: java -Xms1G -Xmx1G -jar /app/paper*.jar nogui
+
+pvc:
+  storage: 5Gi
+
+resources:
+  requests:
+    memory: "1Gi"
+  limits:
+    memory: "1.5Gi"
+
+prometheus:
+  enabled: false
+  path: /metrics
+  port: 9940
