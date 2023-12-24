@@ -1,4 +1,3 @@
-
 #!/bin/sh -e
 
 # If one of the folders starting with "world" has a file named "delete", delete the folder
