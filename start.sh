@@ -1,8 +1,7 @@
-
 #!/bin/sh -e
 
 # If one of the folders starting with "world" has a file named "delete", delete the folder
-find /app-data -maxdepth 1 -type d -name "world*" -exec sh -c 'for f; do [ -e "$f/delete" ] && rm -rf "$f"; done' sh {} +
+find /app-data/world* -maxdepth 0 -type d -name 'world*' -exec sh -c 'cd "$0" && [ -f delete ]' '{}' \; -exec rm -rf '{}' \;
 
 # Delete all .jar in /app-data/plugins
 rm -rf /app-data/plugins/*.jar
