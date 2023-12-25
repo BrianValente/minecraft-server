@@ -36,6 +36,8 @@ spec:
         env:
         - name: CMD
           value: {{ .Values.cmd }}
+        - name: ENVIRONMENT
+          value: {{ .Values.environment }}
       imagePullSecrets:
       - name: regcred
       volumes:

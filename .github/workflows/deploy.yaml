@@ -48,5 +48,5 @@ jobs:
       - name: Deploy
         uses: WyriHaximus/github-action-helm3@v3
         with:
-          exec: helm upgrade -n ${{ env.NAMESPACE }} --create-namespace --install --wait --set image=${{ env.IMAGE }} -f "./values-${{ github.event.inputs.environment }}.yaml" svc-minecraft ./chart
+          exec: helm upgrade -n ${{ env.NAMESPACE }} --create-namespace --install --wait --set image=${{ env.IMAGE }} --set environment=${{ github.event.inputs.environment }} -f "./values-${{ github.event.inputs.environment }}.yaml" svc-minecraft ./chart
           kubeconfig: '${{ secrets.KUBECONFIG }}'
