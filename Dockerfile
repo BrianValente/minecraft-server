@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y curl git openjdk-21-jre
 RUN mkdir app
 WORKDIR /app
 
-RUN curl -o paper.jar https://api.papermc.io/v2/projects/paper/versions/1.20.2/builds/318/downloads/paper-1.20.2-318.jar
+RUN curl -o paper.jar https://fill-data.papermc.io/v1/objects/187989fbf71905b1fead292e5ff822fa6db90d0041092d3b85738648cad04ac5/paper-1.21.11-110.jar
 
 RUN mkdir /app/data
 
