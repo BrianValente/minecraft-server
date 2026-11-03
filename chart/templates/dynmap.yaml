@@ -1,0 +1,17 @@
+{{- if .Values.dynmap.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-dynmap
+  labels:
+    app: {{ .Release.Name }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app: {{ .Release.Name }}
+  ports:
+  - name: dynmap
+    protocol: TCP
+    port: {{ .Values.dynmap.port }}
+    targetPort: {{ .Values.dynmap.port }}
+{{- end }}

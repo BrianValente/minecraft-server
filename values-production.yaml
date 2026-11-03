@@ -2,6 +2,10 @@ cmd: java -Xms6G -Xmx6G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseM
 
 environment: production
 
+podOptions:
+  imagePullSecrets:
+    - name: regcred
+
 pvc:
   storage: 50Gi
 
