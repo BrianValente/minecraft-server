@@ -7,7 +7,14 @@ podOptions:
     - name: regcred
 
 pvc:
+  existingClaim: svc-minecraft
   storage: 50Gi
+
+service:
+  type: ClusterIP
+
+dynmap:
+  enabled: false
 
 resources:
   requests:
