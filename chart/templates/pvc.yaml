@@ -1,10 +1,17 @@
+{{- if not .Values.pvc.existingClaim }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: {{ .Release.Name }}
+  annotations:
+    helm.sh/resource-policy: keep
 spec:
+  {{- if .Values.pvc.storageClassName }}
+  storageClassName: {{ .Values.pvc.storageClassName | quote }}
+  {{- end }}
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: {{ .Values.pvc.storage }}
+{{- end }}
