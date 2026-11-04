@@ -33,11 +33,16 @@ concurrency:
 jobs:
   deploy:
     name: Deploy
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     environment: ${{ inputs.deployment }}
     if: github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Select image
         env:
@@ -52,37 +57,63 @@ jobs:
           fi
           [[ "$image" =~ ^[a-zA-Z0-9][a-zA-Z0-9._:/@-]+$ ]] || { printf 'An explicit image is required\n' >&2; exit 1; }
           printf 'IMAGE=%s\n' "$image" >> "$GITHUB_ENV"
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
         if: inputs.build-image
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         if: inputs.build-image
         with:
           registry: ${{ vars.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         if: inputs.build-image
         with:
           context: .
           push: true
           tags: ${{ env.IMAGE }}
+      - name: Require a compatible Kubernetes client
+        env:
+          KUBECTL_VERSION: ${{ vars.KUBECTL_VERSION }}
+        run: '[[ "$KUBECTL_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { printf "Set KUBECTL_VERSION for this deployment configuration\n" >&2; exit 1; }'
+      - uses: azure/setup-kubectl@776406bce94f63e41d621b960d78ee25c8b76ede # v4
+        with:
+          version: ${{ vars.KUBECTL_VERSION }}
+      - uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
+        with:
+          version: v3.19.0
       - name: Deploy
-        uses: WyriHaximus/github-action-helm3@v3
         env:
           ENVIRONMENT: ${{ inputs.environment }}
           REPLICAS: ${{ inputs.replicas }}
           DEPLOY_VALUES: ${{ vars.DEPLOY_VALUES || '{}' }}
           NAMESPACE: ${{ inputs.environment == 'production' && 'svc-minecraft' || 'svc-minecraft-staging' }}
-        with:
-          kubeconfig: ${{ secrets.KUBECONFIG }}
-          overrule_existing_kubeconfig: 'true'
-          exec: |
-            set -eu
+          KUBERNETES_OIDC_AUDIENCE: ${{ vars.KUBERNETES_OIDC_AUDIENCE }}
+          KUBERNETES_SERVER: ${{ secrets.KUBERNETES_SERVER }}
+          KUBERNETES_CA: ${{ secrets.KUBERNETES_CA }}
+        run: |
+            set -euo pipefail
             umask 077
+            export KUBECONFIG
+            KUBECONFIG="$(mktemp "$RUNNER_TEMP/minecraft-kubeconfig.XXXXXX")"
             values="$RUNNER_TEMP/deployment-values.json"
-            trap 'rm -f "$values"' EXIT
+            credential="$RUNNER_TEMP/github-oidc-credential.sh"
+            trap 'rm -f "$values" "$KUBECONFIG" "$credential"' EXIT
+            cat > "$credential" <<'SH'
+            #!/usr/bin/env bash
+            set -euo pipefail
+            token="$(curl -fsS --get -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" --data-urlencode "audience=$KUBERNETES_OIDC_AUDIENCE" "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -er '.value')"
+            jq -cn --arg token "$token" '{apiVersion:"client.authentication.k8s.io/v1",kind:"ExecCredential",status:{token:$token,expirationTimestamp:($token|split(".")[1]|gsub("-";"+")|gsub("_";"/")|@base64d|fromjson|.exp-30|todateiso8601)}}'
+            SH
+            jq -n --arg server "$KUBERNETES_SERVER" --arg ca "$KUBERNETES_CA" --arg credential "$credential" --arg namespace "$NAMESPACE" '{
+              apiVersion:"v1",kind:"Config","current-context":"deploy",
+              clusters:[{name:"deploy",cluster:{server:$server,"certificate-authority-data":($ca|@base64)}}],
+              contexts:[{name:"deploy",context:{cluster:"deploy",user:"github-oidc",namespace:$namespace}}],
+              users:[{name:"github-oidc",user:{exec:{apiVersion:"client.authentication.k8s.io/v1",interactiveMode:"Never",command:"bash",args:[$credential]}}}]
+            }' > "$KUBECONFIG"
+            jq -e '.clusters[0].cluster | (.server | test("^https://[^/@?#]+(/[^?#]*)?$")) and (."certificate-authority-data" | length > 0) and (."insecure-skip-tls-verify" != true)' "$KUBECONFIG" > /dev/null
             printf '%s' "$DEPLOY_VALUES" > "$values"
             command kubectl config current-context
+            command kubectl auth can-i get statefulsets --namespace "$NAMESPACE"
             helm upgrade --install --wait --timeout 15m --namespace "$NAMESPACE" \
               --values "values-$ENVIRONMENT.yaml" --values "$values" \
               --set "replicas=$REPLICAS" --set-string "image=$IMAGE" \
